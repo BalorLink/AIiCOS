@@ -4,7 +4,7 @@ from tensorflow.keras import layers, models
 
 # Параметры
 latent_dim = 100  # Размерность латентного пространства
-img_shape = (28, 28, 1)  # Размер изображений (например, 28x28 для простоты)
+img_shape = (28, 28, 1)  # Размер изображений 
 num_obstacles = 5  # Количество препятствий
 
 # Генератор
@@ -43,7 +43,7 @@ gan.compile(loss='binary_crossentropy', optimizer='adam')
 
 # Обучение GAN
 def train_gan(epochs=10000, batch_size=128):
-    # Загрузка и нормализация данных (замените на ваши данные)
+    # Загрузка и нормализация данных 
     X_train = np.random.rand(1000, 28, 28)  # Пример случайных данных
 
     # Нормализация данных в диапазоне [-1, 1]
