@@ -1,0 +1,121 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras import layers, models
+
+# Параметры
+latent_dim = 100  # Размерность латентного пространства
+img_shape = (28, 28, 1)  # Размер изображений (например, 28x28 для простоты)
+num_obstacles = 5  # Количество препятствий
+
+# Генератор
+def build_generator():
+    model = models.Sequential()
+    model.add(layers.Dense(128, activation='relu', input_dim=latent_dim))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dense(np.prod(img_shape), activation='tanh'))
+    model.add(layers.Reshape(img_shape))
+    return model
+
+# Дискриминатор
+def build_discriminator():
+    model = models.Sequential()
+    model.add(layers.Flatten(input_shape=img_shape))
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(1, activation='sigmoid'))
+    return model
+
+# Создание GAN
+generator = build_generator()
+discriminator = build_discriminator()
+
+discriminator.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Создание модели GAN
+z = layers.Input(shape=(latent_dim,))
+img = generator(z)
+discriminator.trainable = False
+validity = discriminator(img)
+
+gan = models.Model(z, validity)
+gan.compile(loss='binary_crossentropy', optimizer='adam')
+
+# Обучение GAN
+def train_gan(epochs=10000, batch_size=128):
+    # Загрузка и нормализация данных (замените на ваши данные)
+    X_train = np.random.rand(1000, 28, 28)  # Пример случайных данных
+
+    # Нормализация данных в диапазоне [-1, 1]
+    X_train = (X_train - 0.5) * 2.0
+
+    for epoch in range(epochs):
+        # Генерация случайных шумов и получение изображений от генератора
+        noise = np.random.normal(0, 1, (batch_size, latent_dim))
+        generated_images = generator.predict(noise)
+
+        # Выбор случайных изображений из реальных данных
+        idx = np.random.randint(0, X_train.shape[0], batch_size)
+        real_images = X_train[idx]
+
+        # Обучение дискриминатора
+        d_loss_real = discriminator.train_on_batch(real_images.reshape(batch_size, *img_shape), np.ones((batch_size, 1)))
+        d_loss_fake = discriminator.train_on_batch(generated_images.reshape(batch_size, *img_shape), np.zeros((batch_size, 1)))
+        d_loss = 0.5 * np.add(d_loss_real[0], d_loss_fake[0])
+
+        # Обучение генератора
+        noise = np.random.normal(0, 1, (batch_size, latent_dim))
+        g_loss = gan.train_on_batch(noise, np.ones((batch_size, 1)))
+
+        # Вывод прогресса
+        if epoch % 1000 == 0:
+            print(f"{epoch} [D loss: {d_loss:.4f}] [G loss: {g_loss:.4f}]")
+            plot_generated_images(epoch)
+
+# Функция для генерации препятствий и начальной/конечной точек
+def generate_obstacles_and_points():
+    img = np.zeros((28, 28))  # Создаем пустое изображение
+
+    # Генерация препятствий
+    for _ in range(num_obstacles):
+        x_center = np.random.randint(3, 25)
+        y_center = np.random.randint(3, 25)
+        radius = np.random.randint(2, 5)
+
+        for x in range(max(0,x_center-radius), min(28,x_center+radius)):
+            for y in range(max(0,y_center-radius), min(28,y_center+radius)):
+                if (x - x_center)**2 + (y - y_center)**2 < radius**2:
+                    img[x][y] = 1.0
+
+    # Генерация начальной точки (синий цвет)
+    start_point_x = np.random.randint(1, 27)
+    start_point_y = np.random.randint(1, 27)
+
+    img[start_point_x][start_point_y] = -1.0
+
+    # Генерация конечной точки (красный цвет)
+    end_point_x = np.random.randint(1, 27)
+    end_point_y = np.random.randint(1, 27)
+
+    img[end_point_x][end_point_y] = -2.0
+
+    return img
+
+# Функция для отображения сгенерированных изображений с препятствиями и точками
+def plot_generated_images(epoch):
+    plt.figure(figsize=(10,10))
+
+    for i in range(5):
+        img_with_obstacles_and_points = generate_obstacles_and_points()
+
+        plt.subplot(5,5,i + 1)
+
+        plt.imshow(img_with_obstacles_and_points.T,cmap='gray', vmin=-2,vmax=1)
+        plt.axis('off')
+
+    plt.tight_layout()
+
+    plt.savefig(f"gan_generated_epoch_{epoch}.png")
+
+# Запуск обучения GAN
+train_gan()
